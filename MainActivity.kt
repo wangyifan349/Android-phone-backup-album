@@ -1,19 +1,23 @@
 package com.example.photobackup
 
-import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
 import android.widget.ListView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.photobackup.api.ApiService
 import com.example.photobackup.api.RetrofitClient
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -28,13 +32,15 @@ class MainActivity : AppCompatActivity() {
     private val TAG = "PhotoBackup"
     private var userId: Int? = null
 
-    private lateinit var usernameEditText: EditText
-    private lateinit var passwordEditText: EditText
-    private lateinit var registerButton: Button
-    private lateinit var loginButton: Button
-    private lateinit var uploadButton: Button
-    private lateinit var listFilesButton: Button
+    private lateinit var usernameEditText: TextInputEditText
+    private lateinit var passwordEditText: TextInputEditText
+    private lateinit var registerButton: MaterialButton
+    private lateinit var loginButton: MaterialButton
+    private lateinit var uploadButton: MaterialButton
+    private lateinit var listFilesButton: MaterialButton
     private lateinit var filesListView: ListView
+
+    private val REQUEST_CODE_PERMISSIONS = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,10 +54,34 @@ class MainActivity : AppCompatActivity() {
         listFilesButton = findViewById(R.id.listFilesButton)
         filesListView = findViewById(R.id.filesListView)
 
+        // 检查并请求权限
+        if (!hasStoragePermission()) {
+            requestStoragePermission()
+        }
+
         registerButton.setOnClickListener { registerUser() }
         loginButton.setOnClickListener { loginUser() }
         uploadButton.setOnClickListener { pickImage() }
         listFilesButton.setOnClickListener { listFiles() }
+    }
+
+    private fun hasStoragePermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestStoragePermission() {
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), REQUEST_CODE_PERMISSIONS)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "权限已授予", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "权限被拒绝，无法访问相册", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun registerUser() {
@@ -62,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         apiService.registerUser(username, password).enqueue(object : Callback<String> {
             override fun onResponse(call: Call<String>, response: Response<String>) {
                 if (response.isSuccessful) {
-                    Toast.makeText(this@MainActivity, "注册成功", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "注册成功，请登录", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this@MainActivity, "注册失败: ${response.errorBody()?.string()}", Toast.LENGTH_SHORT).show()
                 }
